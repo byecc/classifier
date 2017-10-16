@@ -1,9 +1,13 @@
 from instance import *
 from readdata import *
 import torch
+import torch.autograd
 import torch.nn.functional as F
 from model import Model
 import time
+import torch.utils.data as Data
+import random
+import numpy as np
 
 class Train:
 
@@ -15,10 +19,9 @@ class Train:
         for i in result:
             word_alpha.create(i.word)
             label_alpha.create(i.label)
-        word_alpha.list.append('-unknown-')
         word_alpha.dict['-unknown-'] = word_alpha.index
-        label_alpha.list.append('-unknown-')
-        label_alpha.dict['-unknown-'] = label_alpha.index
+        word_alpha.dict['-padding-']=word_alpha.index+1
+        # label_alpha.dict['-unknown-'] = label_alpha.index
         # print(word_alpha.dict,label_alpha.dict)
         return word_alpha,label_alpha
 
@@ -33,56 +36,122 @@ class Train:
                 if word in word_alpha.dict.keys():
                     feat.word_index.append(word_alpha.dict[word])
                 else:
-                    feat.word_index.append(len(word_alpha.dict)-1)
-                feat.word_len.append(len(word))
+                    feat.word_index.append(word_alpha.dict['-unknown-'])
+                feat.word_len +=1
             ex.feature = feat
             ex.label_index=label_alpha.dict[i.label]
             examples.append(ex)
         return examples
 
     def toVariables(self,example):
-
         x = torch.autograd.Variable(torch.LongTensor([example.feature.word_index]))
         y = torch.autograd.Variable(torch.LongTensor([example.label_index]))
-        # x.data[0] = example.feature.word_index
-        # y.data[0]=example.label_index
         return x,y
 
-    def train(self,examples,circulate_num,n_embed,n_hidden,n_label,ex2,ex3):
-        """
+    # def create_batch(self):
 
-        :param examples: 训练的样本
-        :param circulate_num: 训练次数
-        :param n_embed: input layer num
-        :param n_hidden: hidden layer num
-        :param n_label: output layer num
+    def create_batchdata(self,ex,pad_ix):
+        max_sentence_size = 0
+        batch_num = len(ex)
+        for e in ex:
+            if max_sentence_size < e.feature.word_len:
+                max_sentence_size = e.feature.word_len
+        batch_input_unify = torch.autograd.Variable(torch.LongTensor(batch_num,max_sentence_size))
+        batch_label_unify = torch.autograd.Variable(torch.LongTensor(batch_num))
+
+        for i in range(batch_num):
+            example =ex[i]
+            batch_label_unify.data[i] = example.label_index
+            for j in range(max_sentence_size):
+                if j < len(example.feature.word_index):
+                    batch_input_unify.data[i][j] = example.feature.word_index[j]
+                else:
+                    batch_input_unify.data[i][j] = pad_ix
+        return batch_input_unify,batch_label_unify
+
+    def batch_toVariable(self,batch_input,batch_label,ix_list,size):
+        test1 = batch_input.data.numpy()
+        test2 = batch_label.data.numpy()
+        batch_block_list = [np.ndarray.tolist(np.array(test1[ix_list[i]])) for i in range(size)]
+        batch_label_list = [np.ndarray.tolist(np.array(test2[ix_list[i]])) for i in range(size)]
+        # batch_block_list = []
+        # batch_label_list = []
+        # for i in range(size):
+        #     batch_block_list.append(np.ndarray.tolist(np.array(test1[ix_list[i]])))
+        #     batch_label_list.append(np.ndarray.tolist(np.array(test2[ix_list[i]])))
+        x = torch.autograd.Variable(torch.LongTensor(batch_block_list))
+        y = torch.autograd.Variable(torch.LongTensor(batch_label_list))
+
+        for i in range(size):
+            ix_list.pop(0)
+        return x,y
+
+    def train(self,parameter,ex1,ex2,ex3):
+        """
+        :param parameter: hyperparameter
+        :param ex1: train examples
+        :param ex2: dev examples
+        :param ex3: test examples
         :return:
         """
-        model = Model(n_embed,n_hidden,n_label)
+        batch_block = len(ex1)//parameter.batch_size
+        remain = len(ex1)%parameter.batch_size
+        if remain != 0:
+            batch_block +=1
+        model = Model(parameter.n_embed,parameter.n_hidden,parameter.n_label,5)
         optimizer = torch.optim.Adam(model.parameters(),lr=0.05)
-        for i in range(circulate_num):
+        batch_input_unify,batch_label_unify = self.create_batchdata(ex1,parameter.padding_index)
+        sentence_list = []
+        for i in range(len(ex1)):
+            sentence_list.append(i)
+        for i in range(parameter.epoch):
             print("第%d次:"%(i+1))
             starttime = time.time()
             sum=0
             correct=0
             loss_sum = 0.0
-            for example in examples:
+            # for example in ex1:      # 未加batch
+            #     optimizer.zero_grad()
+            #     x,y = self.toVariables(example)
+            #     logit = model.forward(x)
+            #     # torch.nn.MSELoss
+            #     loss = F.cross_entropy(logit,y)
+            #     loss.backward()
+            #     optimizer.step()
+            #
+            #     if y.data[0]==self.getMaxIndex(logit):
+            #         correct+=1
+            #     sum+=1
+            #     loss_sum += loss.data[0]
+            # print("loss:",(loss_sum/sum))
+            # print('train accuracy :',(correct/sum))
+            # endtime = time.time()
+            # print('after',(endtime-starttime),'s')
+
+            sen_idx = [s for s in sentence_list]
+            random.shuffle(sen_idx)
+            for block in range(batch_block):
                 optimizer.zero_grad()
-                x,y = self.toVariables(example)
+                if block ==batch_block-1:
+                    x,y = self.batch_toVariable(batch_input_unify,batch_label_unify,sen_idx,remain)
+                else:
+                    x,y = self.batch_toVariable(batch_input_unify,batch_label_unify,sen_idx,parameter.batch_size)
                 logit = model.forward(x)
-                # torch.nn.MSELoss
                 loss = F.cross_entropy(logit,y)
                 loss.backward()
                 optimizer.step()
-
                 if y.data[0]==self.getMaxIndex(logit):
                     correct+=1
                 sum+=1
                 loss_sum += loss.data[0]
             print("loss:",(loss_sum/sum))
-            print('train accuracy :',(correct/sum))
+            accuracy = correct/sum
+            print('train accuracy :',accuracy)
             endtime = time.time()
             print('after',(endtime-starttime),'s')
+            if accuracy==1.0:
+                break
+
         cor=0
         s=0
         for ex in ex2:
@@ -92,8 +161,15 @@ class Train:
                 cor += 1
             s += 1
         print('ex2 accuracy:',(cor/s))
-
-
+        cor=0
+        s=0
+        for ex in ex3:
+            x3, y3 = self.toVariables(ex)
+            logit = model.forward(x3)
+            if y3.data[0] == self.getMaxIndex(logit):
+                cor += 1
+            s += 1
+        print('ex3 accuracy:',(cor/s))
 
     def getMaxIndex(self,score):    #获取最大权重的下标
         label_size=score.size()[1]

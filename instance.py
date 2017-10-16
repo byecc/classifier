@@ -1,13 +1,11 @@
 class Alphabet:
     def __init__(self):
-        self.list=[]
         self.dict={}
         self.index = 0
 
     def create(self,word_data):
         for word in word_data:
-            if word not in self.list:
-                self.list.append(word)
+            if word not in self.dict.keys():
                 self.dict[word]=self.index
                 self.index+=1
 
@@ -18,7 +16,7 @@ class Alphabet:
 class Feature:
     def __init__(self):
         self.word_index=[]
-        self.word_len=[]
+        self.word_len=0
 
 class Example:
     def __init__(self):
