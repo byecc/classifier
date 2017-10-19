@@ -25,7 +25,8 @@ class HyperParameter:
         # self.dev_file = 'data/custrev.all.dev'
         # self.test_file = 'data/custrev.all.test'
 
-        self.wordEmbed_file='data/converted_word_Subj.txt'
+        # self.wordEmbed_file='data/converted_word_Subj.txt'
+        self.wordEmbed_file='data/converted_word_CR.txt'
 
         self.padding_index = 0
         self.word_embed = []
