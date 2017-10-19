@@ -9,11 +9,13 @@ import torch.utils.data as Data
 import random
 import numpy as np
 
+random.seed(21)
 class Train:
 
-    def create_alphabet(self,data_file):
+    def create_alphabet(self,data_file,embed_dict):
         rd = Read_Data(data_file)
-        result = rd.process()
+        # result = rd.process_twitter_task()
+        result = rd.process_new_task()
         word_alpha = Alphabet()
         label_alpha = Alphabet()
         for i in result:
@@ -23,11 +25,19 @@ class Train:
         word_alpha.dict['-padding-']=word_alpha.index+1
         # label_alpha.dict['-unknown-'] = label_alpha.index
         # print(word_alpha.dict,label_alpha.dict)
-        return word_alpha,label_alpha
+        we = []
+        for i in word_alpha.dict.keys():
+            if i in embed_dict.keys():
+                we.append(embed_dict[i])
+                # print(i,embed_dict[i])
+            else:
+                we.append([random.uniform(-0.25,0.25) for i in range(300)])
+        return word_alpha,label_alpha,we
 
     def create_feature(self,data_file,word_alpha,label_alpha):
         rd = Read_Data(data_file)
-        result = rd.process()
+        # result = rd.process_twitter_task()
+        result = rd.process_new_task()
         examples = []
         for i in result:
             feat = Feature()
@@ -98,7 +108,8 @@ class Train:
         remain = len(ex1)%parameter.batch_size
         if remain != 0:
             batch_block +=1
-        model = Model(parameter.n_embed,parameter.n_hidden,parameter.n_label,5)
+        model = Model(parameter)
+        model.pretrain(parameter.word_embed)
         optimizer = torch.optim.Adam(model.parameters(),lr=0.05)
         batch_input_unify,batch_label_unify = self.create_batchdata(ex1,parameter.padding_index)
         sentence_list = []
@@ -156,7 +167,7 @@ class Train:
         s=0
         for ex in ex2:
             x2, y2 = self.toVariables(ex)
-            logit = model.forward(x2)
+            logit = model(x2)
             if y2.data[0] == self.getMaxIndex(logit):
                 cor += 1
             s += 1
@@ -165,7 +176,7 @@ class Train:
         s=0
         for ex in ex3:
             x3, y3 = self.toVariables(ex)
-            logit = model.forward(x3)
+            logit = model(x3)
             if y3.data[0] == self.getMaxIndex(logit):
                 cor += 1
             s += 1
@@ -181,6 +192,18 @@ class Train:
                 max=tmp
                 maxIndex=idx
         return maxIndex
+
+    def load_word_embedding(self,path):
+        dict={}
+        with open(path,'r') as f:
+            fr = f.readlines()
+            embed_dim = fr[0]
+            for line in fr[1:]:
+                wordv = line.strip().split(' ',1)
+                dict[wordv[0]] = wordv[1].split(' ')
+        dict['-unkwon-'] = [random.uniform(-0.25,0.25) for i in range(int(embed_dim))]
+        dict['-padding-'] = [random.uniform(-0.25,0.25) for i in range(int(embed_dim))]
+        return dict
 
 
 

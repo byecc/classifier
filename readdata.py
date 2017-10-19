@@ -1,4 +1,6 @@
 import re
+import random
+import math
 
 class  Instance:
     def __init__(self):
@@ -32,7 +34,7 @@ class Read_Data:
         string = re.sub(r"\s{2,}", " ", string)
         return string.strip().lower()
 
-    def process(self):
+    def process_twitter_task(self):
         result=[]
         with open(self.path,'r') as f:
             for line in f.readlines():
@@ -46,4 +48,30 @@ class Read_Data:
         #     print(i.word,i.label)
         return result
 
+    def process_new_task(self):
+        result = []
+        with open(self.path,'r') as f:
+            for line in f.readlines():
+                info = Instance()
+                sentence = line.strip().split(' ',1)
+                info.label = sentence[0]
+                info.word = sentence[1].split(' ')
+                result.append(info)
+        return result
 
+    def generate_new_data(self,path):
+        data_list = []
+        with open(path,'r') as f:
+            for line in f.readlines():
+                data_list.append(line)
+        random.shuffle(data_list)
+        for i in range(len(data_list)):
+            if i <= round(len(data_list)*0.7):
+                with open(path+'.train','a') as f:
+                    f.write(data_list[i])
+            elif round(len(data_list))*0.7<i<= round(len(data_list)*0.8):
+                with open(path+'.dev','a') as f:
+                    f.write(data_list[i])
+            else:
+                with open(path+'.test','a') as f:
+                    f.write(data_list[i])
