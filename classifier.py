@@ -158,24 +158,6 @@ class Train:
             self.eval(model,ex2,'dev')
         self.eval(model,ex2,'dev')
         self.eval(model,ex3,'test')
-        # cor=0
-        # s=0
-        # for ex in ex2:
-        #     x2, y2 = self.toVariables(ex)
-        #     logit = model(x2)
-        #     if y2.data[0] == self.getMaxIndex(logit):
-        #         cor += 1
-        #     s += 1
-        # print('ex2 accuracy:',(cor/s))
-        # cor=0
-        # s=0
-        # for ex in ex3:
-        #     x3, y3 = self.toVariables(ex)
-        #     logit = model(x3)
-        #     if y3.data[0] == self.getMaxIndex(logit):
-        #         cor += 1
-        #     s += 1
-        # print('ex3 accuracy:',(cor/s))
 
     def eval(self,model,eval_data,data_name):
         cor = 0
