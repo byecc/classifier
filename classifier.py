@@ -31,7 +31,8 @@ class Train:
                 we.append(embed_dict[i])
                 # print(i,embed_dict[i])
             else:
-                we.append([random.uniform(-0.25,0.25) for i in range(300)])
+                we.append([random.uniform(-0.25,0.25) for i in range(300)]) # file : converted_word....txt
+                # we.append([random.uniform(-0.25,0.25) for i in range(100)]) # file : w2v103100-en
         return word_alpha,label_alpha,we
 
     def create_feature(self,data_file,word_alpha,label_alpha):
@@ -109,10 +110,12 @@ class Train:
         if remain != 0:
             batch_block +=1
         model = Model(parameter)
+        print(model)
         model.pretrain(parameter.word_embed)
         optimizer = torch.optim.Adam(model.parameters(),lr=0.05)
         batch_input_unify,batch_label_unify = self.create_batchdata(ex1,parameter.padding_index)
         sentence_list = []
+        stime = time.time()
         for i in range(len(ex1)):
             sentence_list.append(i)
         for i in range(parameter.epoch):
@@ -129,16 +132,6 @@ class Train:
             #     loss = F.cross_entropy(logit,y)
             #     loss.backward()
             #     optimizer.step()
-            #
-            #     if y.data[0]==self.getMaxIndex(logit):
-            #         correct+=1
-            #     sum+=1
-            #     loss_sum += loss.data[0]
-            # print("loss:",(loss_sum/sum))
-            # print('train accuracy :',(correct/sum))
-            # endtime = time.time()
-            # print('after',(endtime-starttime),'s')
-
             sen_idx = [s for s in sentence_list]
             random.shuffle(sen_idx)
             for block in range(batch_block):
@@ -162,25 +155,38 @@ class Train:
             print('after',(endtime-starttime),'s')
             if accuracy==1.0:
                 break
+            self.eval(model,ex2,'dev')
+        self.eval(model,ex2,'dev')
+        self.eval(model,ex3,'test')
+        # cor=0
+        # s=0
+        # for ex in ex2:
+        #     x2, y2 = self.toVariables(ex)
+        #     logit = model(x2)
+        #     if y2.data[0] == self.getMaxIndex(logit):
+        #         cor += 1
+        #     s += 1
+        # print('ex2 accuracy:',(cor/s))
+        # cor=0
+        # s=0
+        # for ex in ex3:
+        #     x3, y3 = self.toVariables(ex)
+        #     logit = model(x3)
+        #     if y3.data[0] == self.getMaxIndex(logit):
+        #         cor += 1
+        #     s += 1
+        # print('ex3 accuracy:',(cor/s))
 
-        cor=0
-        s=0
-        for ex in ex2:
-            x2, y2 = self.toVariables(ex)
-            logit = model(x2)
-            if y2.data[0] == self.getMaxIndex(logit):
-                cor += 1
-            s += 1
-        print('ex2 accuracy:',(cor/s))
-        cor=0
-        s=0
-        for ex in ex3:
-            x3, y3 = self.toVariables(ex)
-            logit = model(x3)
-            if y3.data[0] == self.getMaxIndex(logit):
-                cor += 1
-            s += 1
-        print('ex3 accuracy:',(cor/s))
+    def eval(self,model,eval_data,data_name):
+        cor = 0
+        s = 0
+        for e in eval_data:
+            x,y = self.toVariables(e)
+            logit = model(x)
+            if y.data[0]==self.getMaxIndex(logit):
+                cor+=1
+            s+=1
+        print(data_name +' accuracy:',(cor/s))
 
     def getMaxIndex(self,score):    #获取最大权重的下标
         label_size=score.size()[1]
@@ -197,7 +203,8 @@ class Train:
         dict={}
         with open(path,'r') as f:
             fr = f.readlines()
-            embed_dim = fr[0]
+            embed_dim = fr[0] # file: data/converted_word_Subj.txt; data/converted_word_CR.txt
+            # embed_dim = fr[0].strip().split(' ')[1] # file: data/w2v103100-en
             for line in fr[1:]:
                 wordv = line.strip().split(' ',1)
                 dict[wordv[0]] = wordv[1].split(' ')
